@@ -307,10 +307,10 @@ bot.on("photo", async (ctx) => {
           const traceId = genTraceId();
           const job = await makeAlbumJob(ctx, entry.items, traceId);
           const pos = enqueueJob(userId, job);
-          if (pos > 1)
-            await ctx.reply(
-              `Queued (#${pos}). I'll process your album shortly.`
-            );
+          // if (pos > 1)
+          //   await ctx.reply(
+          //     `Queued (#${pos}). I'll process your album shortly.`
+          //   );
         }, ALBUM_AGGREGATE_MS),
       });
     }
