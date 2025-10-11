@@ -330,7 +330,7 @@ bot.on("photo", async (ctx) => {
       "photo"
     );
     const pos = enqueueJob(userId, job);
-    if (pos > 1) await ctx.reply(`Queued (#${pos}). I'll process it shortly.`);
+    // if (pos > 1) await ctx.reply(`Queued (#${pos}). I'll process it shortly.`);
   }
 });
 
@@ -398,7 +398,7 @@ bot.on("document", async (ctx) => {
   };
 
   const pos = enqueueJob(userId, job);
-  if (pos > 1) await ctx.reply(`Queued (#${pos}). I'll process it shortly.`);
+  // if (pos > 1) await ctx.reply(`Queued (#${pos}). I'll process it shortly.`);
 });
 
 module.exports = { bot };
