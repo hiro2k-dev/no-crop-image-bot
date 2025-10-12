@@ -79,6 +79,17 @@ async function processAndReplyImage(
     (fileNameHint ? fileNameHint.replace(/\.[^.]+$/, "") : "image") +
     `_no_crop_${st.ratio.key.replace(":", "x")}.${ext}`;
 
+  log("info", "sending file", {
+    traceId,
+    filename,
+    inputSize: buf.length,
+    outputSize: out.length,
+    ratio: st.ratio.key,
+    format: fmt,
+    width,
+    height,
+  });
+
   await ctx.replyWithDocument(
     { source: out, filename },
     { caption: `${st.ratio.key} | ${st.color}` }
