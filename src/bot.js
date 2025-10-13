@@ -1,6 +1,10 @@
 const { Telegraf } = require("telegraf");
 const sharp = require("sharp");
-const { BOT_TOKEN, ALBUM_AGGREGATE_MS } = require("./config");
+const {
+  BOT_TOKEN,
+  ALBUM_AGGREGATE_MS,
+  TELEGRAM_API_BASE,
+} = require("./config");
 const { log, genTraceId } = require("./logger");
 const {
   parseRatio,
@@ -14,7 +18,9 @@ const { acquireLock, releaseLock } = require("./models/Lock");
 const { downloadFileBuffer, noCropBuffer, mapFormatToExt } = require("./image");
 const { addJobLog } = require("./models/JobLog");
 
-const bot = new Telegraf(BOT_TOKEN);
+const bot = new Telegraf(BOT_TOKEN, {
+  telegram: { apiRoot: TELEGRAM_API_BASE },
+});
 
 // ---------------- Queue per user ----------------
 const userQueues = new Map(); // userId -> [async job()]
