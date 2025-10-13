@@ -18,6 +18,9 @@ const { acquireLock, releaseLock } = require("./models/Lock");
 const { downloadFileBuffer, noCropBuffer, mapFormatToExt } = require("./image");
 const { addJobLog } = require("./models/JobLog");
 
+const ALLOWED_MIME = new Set(["image/jpeg", "image/jpg", "image/png"]);
+const ALLOWED_FMT = new Set(["jpeg", "jpg", "png"]);
+
 const bot = new Telegraf(BOT_TOKEN, {
   telegram: { apiRoot: TELEGRAM_API_BASE },
 });
@@ -73,12 +76,23 @@ async function processAndReplyImage(
   jobType = "photo"
 ) {
   const t0 = Date.now();
+
+  // Normalize inputFmtHint
+  let inFmt = (inputFmtHint || "").toLowerCase();
+  if (inFmt === "jpg") inFmt = "jpeg";
+
+  // block unsupported just in case
+  if (inFmt && !ALLOWED_FMT.has(inFmt)) {
+    await ctx.reply("Unsupported image format. Please send JPEG or PNG.");
+    return { bytes: 0, ms: 0 };
+  }
+
   const {
     buffer: out,
     format: fmt,
     width,
     height,
-  } = await noCropBuffer(buf, st.ratio, st.color, inputFmtHint);
+  } = await noCropBuffer(buf, st.ratio, st.color, inFmt || undefined);
 
   const ext = mapFormatToExt(fmt);
   const filename =
@@ -149,18 +163,25 @@ async function makeSinglePhotoJob(
       await ctx.replyWithChatAction("upload_document");
       const buf = await downloadFileBuffer(ctx, fileId);
       const meta = await sharp(buf, { failOn: "none" }).metadata();
-      const fmt = meta && meta.format ? meta.format.toLowerCase() : "jpeg";
-      const res = await processAndReplyImage(
-        ctx,
-        buf,
-        fileNameHint,
-        fmt,
-        st,
-        traceId,
-        jobType
-      );
-      bytes += res.bytes;
-      ms += res.ms;
+      let fmt = meta && meta.format ? meta.format.toLowerCase() : "jpeg";
+      if (fmt === "jpg") fmt = "jpeg";
+
+      // Guard: only jpeg/png
+      if (!ALLOWED_FMT.has(fmt)) {
+        await ctx.reply("Unsupported image format. Please send JPEG or PNG.");
+      } else {
+        const res = await processAndReplyImage(
+          ctx,
+          buf,
+          fileNameHint,
+          fmt,
+          st,
+          traceId,
+          jobType
+        );
+        bytes += res.bytes;
+        ms += res.ms;
+      }
     } catch (err) {
       console.error(err);
       log("error", "processing photo", { traceId, userId, error: err.message });
@@ -211,7 +232,18 @@ async function makeAlbumJob(ctx, items, traceId) {
         const item = items[i];
         const buf = await downloadFileBuffer(ctx, item.fileId);
         const meta = await sharp(buf, { failOn: "none" }).metadata();
-        const fmt = meta && meta.format ? meta.format.toLowerCase() : "jpeg";
+        let fmt = meta && meta.format ? meta.format.toLowerCase() : "jpeg";
+        if (fmt === "jpg") fmt = "jpeg";
+
+        if (!ALLOWED_FMT.has(fmt)) {
+          await ctx.reply(
+            `Skip unsupported format in album item #${
+              i + 1
+            }. Only JPEG/PNG are supported.`
+          );
+          continue;
+        }
+
         const res = await processAndReplyImage(
           ctx,
           buf,
@@ -323,11 +355,7 @@ bot.on("photo", async (ctx) => {
 
           const traceId = genTraceId();
           const job = await makeAlbumJob(ctx, entry.items, traceId);
-          const pos = enqueueJob(userId, job);
-          // if (pos > 1)
-          //   await ctx.reply(
-          //     `Queued (#${pos}). I'll process your album shortly.`
-          //   );
+          enqueueJob(userId, job);
         }, ALBUM_AGGREGATE_MS),
       });
     }
@@ -346,14 +374,19 @@ bot.on("photo", async (ctx) => {
       traceId,
       "photo"
     );
-    const pos = enqueueJob(userId, job);
-    // if (pos > 1) await ctx.reply(`Queued (#${pos}). I'll process it shortly.`);
+    enqueueJob(userId, job);
   }
 });
 
 bot.on("document", async (ctx) => {
   const doc = ctx.message.document;
-  if (!doc || !doc.mime_type || !doc.mime_type.startsWith("image/")) return;
+  if (!doc || !doc.mime_type) return;
+
+  // Only accept jpeg/jpg/png documents
+  if (!ALLOWED_MIME.has(doc.mime_type.toLowerCase())) {
+    await ctx.reply("Unsupported image format. Please send JPEG or PNG.");
+    return;
+  }
 
   const userId = String(ctx.from.id);
   const traceId = genTraceId();
@@ -380,21 +413,27 @@ bot.on("document", async (ctx) => {
     try {
       const buf = await downloadFileBuffer(ctx, doc.file_id);
       const meta = await sharp(buf, { failOn: "none" }).metadata();
-      const fmt =
+      let fmt =
         meta && meta.format
           ? meta.format.toLowerCase()
-          : doc.mime_type.split("/")[1];
-      const res = await processAndReplyImage(
-        ctx,
-        buf,
-        doc.file_name,
-        fmt,
-        st,
-        traceId,
-        "document"
-      );
-      bytes += res.bytes;
-      ms += res.ms;
+          : doc.mime_type.split("/")[1].toLowerCase();
+      if (fmt === "jpg") fmt = "jpeg";
+
+      if (!ALLOWED_FMT.has(fmt)) {
+        await ctx.reply("Unsupported image format. Please send JPEG or PNG.");
+      } else {
+        const res = await processAndReplyImage(
+          ctx,
+          buf,
+          doc.file_name,
+          fmt,
+          st,
+          traceId,
+          "document"
+        );
+        bytes += res.bytes;
+        ms += res.ms;
+      }
     } catch (err) {
       log("error", "document error", { traceId, error: err.message });
       await ctx.reply("Processing error (document).");
@@ -414,8 +453,7 @@ bot.on("document", async (ctx) => {
     }
   };
 
-  const pos = enqueueJob(userId, job);
-  // if (pos > 1) await ctx.reply(`Queued (#${pos}). I'll process it shortly.`);
+  enqueueJob(userId, job);
 });
 
 module.exports = { bot };

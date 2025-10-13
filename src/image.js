@@ -3,8 +3,9 @@ const sharp = require("sharp");
 const { fileURLToPath } = require("url");
 const fs = require("fs/promises");
 
-function isSharpWritableFormat(fmt) {
-  return ["jpeg", "png", "webp", "tiff", "avif", "heif"].includes(fmt);
+// Only accept jpeg/jpg and png
+function isAllowedFormat(fmt) {
+  return fmt === "jpeg" || fmt === "jpg" || fmt === "png";
 }
 
 function mapFormatToExt(fmt) {
@@ -34,15 +35,18 @@ async function downloadFileBuffer(ctx, fileId) {
   return Buffer.from(res.data);
 }
 
-
 async function noCropBuffer(buf, ratio, borderHex, inputFormatHint) {
   const base = sharp(buf, { failOn: "none" }).rotate();
   const meta = await base.metadata();
   const W = meta.width,
     H = meta.height;
 
+  // normalize and restrict to jpeg/png
   let fmt = (inputFormatHint || meta.format || "jpeg").toLowerCase();
-  if (!isSharpWritableFormat(fmt)) fmt = "png";
+  if (fmt === "jpg") fmt = "jpeg";
+  if (!isAllowedFormat(fmt)) {
+    fmt = "jpeg";
+  }
 
   if (!ratio || ratio.key === "original" || !ratio.w || !ratio.h) {
     return { buffer: buf, format: fmt, width: W, height: H };
@@ -69,16 +73,17 @@ async function noCropBuffer(buf, ratio, borderHex, inputFormatHint) {
     background: borderHex,
   });
 
-  if (fmt === "jpeg")
-    pipeline = pipeline.jpeg({ quality: 100, chromaSubsampling: "4:4:4" });
-  else if (fmt === "png") pipeline = pipeline.png({ compressionLevel: 9 });
-  else if (fmt === "webp")
-    pipeline = pipeline.webp({ quality: 100, lossless: true });
-  else if (fmt === "tiff") pipeline = pipeline.tiff({ quality: 100 });
-  else if (fmt === "avif")
-    pipeline = pipeline.avif({ quality: 100, lossless: true });
-  else if (fmt === "heif")
-    pipeline = pipeline.heif({ quality: 100, lossless: true });
+  // Encode sane defaults to avoid bloat
+  if (fmt === "jpeg") {
+    pipeline = pipeline.jpeg({
+      quality: 92,
+      chromaSubsampling: "4:2:0",
+      progressive: true,
+      mozjpeg: true,
+    });
+  } else if (fmt === "png") {
+    pipeline = pipeline.png({ compressionLevel: 9 });
+  }
 
   const out = await pipeline.toBuffer();
   return { buffer: out, format: fmt, width: Cw, height: Ch };
