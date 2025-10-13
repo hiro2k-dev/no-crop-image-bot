@@ -76,7 +76,7 @@ async function noCropBuffer(buf, ratio, borderHex, inputFormatHint) {
   // Encode sane defaults to avoid bloat
   if (fmt === "jpeg") {
     pipeline = pipeline.jpeg({
-      quality: 92,
+      quality: 96,
       chromaSubsampling: "4:4:4",
       progressive: true,
       mozjpeg: true,
