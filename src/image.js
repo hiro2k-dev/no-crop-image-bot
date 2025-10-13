@@ -1,6 +1,7 @@
 const axios = require("axios");
 const sharp = require("sharp");
 const { fileURLToPath } = require("url");
+const fs = require("fs/promises");
 
 function isSharpWritableFormat(fmt) {
   return ["jpeg", "png", "webp", "tiff", "avif", "heif"].includes(fmt);
