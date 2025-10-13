@@ -77,7 +77,7 @@ async function noCropBuffer(buf, ratio, borderHex, inputFormatHint) {
   if (fmt === "jpeg") {
     pipeline = pipeline.jpeg({
       quality: 92,
-      chromaSubsampling: "4:2:0",
+      chromaSubsampling: "4:4:4",
       progressive: true,
       mozjpeg: true,
     });
