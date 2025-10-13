@@ -12,17 +12,27 @@ function mapFormatToExt(fmt) {
 
 async function downloadFileBuffer(ctx, fileId) {
   const link = await ctx.telegram.getFileLink(fileId);
-  console.log("Downloading file from", link.href);
-
   const href = link?.href || String(link);
+
+  console.log(`Downloading file from ${href}`);
+
   if (href.startsWith("file:")) {
-    const localPath = fileURLToPath(href); // Convert file:///var/lib/... → /var/lib/...
+    let localPath;
+    try {
+      localPath = fileURLToPath(href);
+    } catch (e) {
+      const u = new URL(href);
+      localPath = decodeURIComponent(u.pathname);
+    }
     const data = await fs.readFile(localPath);
     return Buffer.from(data);
   }
+
+  // http/https fallback
   const res = await axios.get(href, { responseType: "arraybuffer" });
   return Buffer.from(res.data);
 }
+
 
 async function noCropBuffer(buf, ratio, borderHex, inputFormatHint) {
   const base = sharp(buf, { failOn: "none" }).rotate();
