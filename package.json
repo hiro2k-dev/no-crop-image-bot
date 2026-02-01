@@ -4,8 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "npx nodemon src/index.js",
+    "bot": "node bot.js",
+    "bot:dev": "npx nodemon bot.js",
+    "api": "node api.js",
+    "api:dev": "npx nodemon api.js",
+    "cleanup": "node scripts/cleanup-expired.js",
     "monitor": "node scripts/monitor.js",
     "monitor:watch": "node scripts/monitor.js --watch",
     "unlock": "node scripts/unlock.js",
@@ -16,8 +19,11 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^1.12.2",
+    "cors": "^2.8.6",
     "dotenv": "^17.2.3",
+    "express": "^5.2.1",
     "mongoose": "^8.19.1",
+    "multer": "^2.0.2",
     "sharp": "^0.34.4",
     "telegraf": "^4.16.3"
   }
